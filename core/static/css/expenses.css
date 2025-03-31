@@ -1,0 +1,61 @@
+/* Expense table styling */
+.expense-table {
+    width: 100%;
+    margin-top: 20px;
+}
+
+/* Modal styling */
+.modal-content {
+    padding: 20px;
+}
+
+/* Filter section styling */
+.filter-section {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+/* Action buttons */
+.btn-action {
+    margin: 0 5px;
+    padding: 5px 10px;
+}
+
+/* Loading spinner styles */
+.spinner-border {
+    vertical-align: middle;
+    margin-right: 0.5rem;
+}
+
+/* Modal loading overlay */
+.modal-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1050;
+    display: none;
+}
+
+/* Disabled form elements */
+.form-control:disabled, .form-select:disabled {
+    background-color: #e9ecef;
+    opacity: 1;
+}
+
+.card-body {
+    position: relative;
+    height: 600px; /* Match this to your filter form height */
+}
+
+#expenseChart {
+    width: 100% !important;
+    height: 100% !important;
+}

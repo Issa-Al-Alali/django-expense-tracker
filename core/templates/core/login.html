@@ -1,0 +1,36 @@
+<!-- filepath: c:\Users\user\finance_project\core\templates\core\login.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    {% load static %}
+    <title>Login</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+    <form method="post">
+        <h1>Login</h1>
+        {% csrf_token %}
+        <!-- Display non-field errors -->
+        {% if form.non_field_errors %}
+            <div class="error-message">
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <!-- Display the form fields -->
+        <div>
+            <label for="id_email">Email:</label>
+            {{ form.email.errors }}
+            {{ form.email }}
+        </div>
+        <div>
+            <label for="id_password">Password:</label>
+            {{ form.password.errors }}
+            {{ form.password }}
+        </div>
+        <button type="submit">Login</button>
+        <p>Don't have an account? <a href="{% url 'register' %}">Register</a></p>
+    </form>
+</body>
+</html>

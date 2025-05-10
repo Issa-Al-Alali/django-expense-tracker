@@ -41,10 +41,12 @@ INSTALLED_APPS = [
     'core.apps.CoreConfig',
     'rest_framework',
     'rest_framework.authtoken',
+    'corsheaders',
     'knox',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware', # Add this line at the top
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -70,6 +72,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.user_profile',
             ],
         },
     },
@@ -134,6 +137,9 @@ USE_TZ = True
 STATIC_URL = 'static/'
 LOGIN_URL = '/login/'
 API_BASE_URL = 'http://localhost:8000'  # Your API base URL
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -151,3 +157,5 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ],
 }
+
+CORS_ALLOW_ALL_ORIGINS = True

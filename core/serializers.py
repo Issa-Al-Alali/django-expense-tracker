@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
-from .models import Expense, Income
+from .models import Expense, Income, Video, Category
 import hashlib
 
 User = get_user_model()
@@ -81,15 +81,41 @@ class IncomeSerializer(serializers.ModelSerializer):
         return value
     
 class ExpenseSerializer(serializers.ModelSerializer):
-    category_name = serializers.CharField(source='category.name', read_only=True)  # Add category name
-
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    
     class Meta:
         model = Expense
-        fields = ['id', 'expense_date', 'category', 'category_name', 'description', 'amount', 'location']
+        fields = ['id', 'expense_date', 'category', 'category_name', 
+                 'description', 'amount', 'location', 'receipt']
+        extra_kwargs = {
+            'receipt': {'required': False, 'allow_null': True}
+        }
     
     def create(self, validated_data):
-        user = self.context.get('user')  # Get the user from the context
+        # Get the uploaded file from the request if it exists
+        receipt = self.context['request'].FILES.get('receipt')
+        if receipt:
+            validated_data['receipt'] = receipt
+            
+        user = self.context.get('user')
         if not user:
             raise serializers.ValidationError("User is required.")
-        validated_data['user'] = user  # Set the user explicitly
+            
+        validated_data['user'] = user
         return super().create(validated_data)
+    
+    def to_internal_value(self, data):
+        # Handle case where receipt comes as a string (from JSON)
+        if isinstance(data.get('receipt'), str) and data['receipt'] == '':
+            data.pop('receipt')
+        return super().to_internal_value(data)
+    
+class VideoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Video
+        fields = ['id', 'title', 'url', 'thumbnail', 'description', 'created_at']
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = '__all__'  # or list specific fields like ['id', 'name', ...]

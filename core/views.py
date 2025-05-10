@@ -2,11 +2,11 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .serializers import UserRegistrationSerializer, UserLoginSerializer, ExpenseSerializer
-from .models import Income, Category, Expense
+from .serializers import UserRegistrationSerializer, UserLoginSerializer, ExpenseSerializer, VideoSerializer, CategorySerializer
+from .models import Income, Category, Expense, Video
 from django.db import IntegrityError
 from django.db.models.functions import ExtractMonth
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from .serializers import IncomeSerializer
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
@@ -18,13 +18,19 @@ from django.contrib import messages
 from django.http import JsonResponse, HttpResponseRedirect
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
-from django.contrib.auth import login as auth_login
+from django.contrib.auth import login as auth_login, logout
 from django.conf import settings
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 import requests
 from .forms import RegistrationForm, LoginForm
-from django.contrib.auth import logout as auth_logout
 import logging
 logger = logging.getLogger(__name__)
+
+from django.core.paginator import Paginator  # Import Paginator
+from rest_framework.pagination import PageNumberPagination  # Import PageNumberPagination
+from rest_framework import generics  # Import generics
+
+from .forms import ProfilePictureForm  # Import the missing form
 
 User = get_user_model()
 
@@ -110,26 +116,28 @@ class IncomeDetailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class AddExpenseView(APIView):
+    parser_classes = (MultiPartParser, FormParser, JSONParser)  # Add all three parsers
+    
     def post(self, request, user_id, category_name):
-        # Get the user
         user = get_object_or_404(User, id=user_id)
-
-        # Get the category
         category = get_object_or_404(Category, name=category_name)
 
-        # Add the expense
-        data = request.data
-        data['category'] = category.id  # Only set the category ID
+        # Handle both form data and JSON
+        data = request.data.dict() if hasattr(request.data, 'dict') else request.data.copy()
+        data['category'] = category.id
 
-        serializer = ExpenseSerializer(data=data, context={'user': user})  # Pass user in context
+        serializer = ExpenseSerializer(data=data, context={
+            'user': user,
+            'request': request
+        })
 
         if serializer.is_valid():
             try:
-                serializer.save(user=user)  # Explicitly set the user
+                serializer.save()
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except IntegrityError as e:
                 return Response(
-                    {"error": "A database integrity error occurred.", "details": str(e)},
+                    {"error": "Database error", "details": str(e)},
                     status=status.HTTP_400_BAD_REQUEST
                 )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -257,6 +265,68 @@ class CategoryExpenseSummaryView(APIView):
             'data': data
         })           
 
+class UserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser)
+    
+    def get(self, request):
+        user = request.user
+        return Response({
+            'id': str(user.id),
+            'username': user.username,
+            'email': user.email,
+            'profile_picture': request.build_absolute_uri(user.profile_picture.url) if user.profile_picture else None
+        })
+    
+    def put(self, request):
+        user = request.user
+        
+        if 'profile_picture' in request.FILES:
+            # Delete old profile picture if exists
+            if user.profile_picture:
+                try:
+                    user.profile_picture.delete(save=False)
+                except:
+                    pass  # Handle potential file deletion errors
+            
+            user.profile_picture = request.FILES['profile_picture']
+            user.save()
+            
+            # Return the updated profile with the new picture URL
+            profile_picture_url = request.build_absolute_uri(user.profile_picture.url) if user.profile_picture else None
+            
+            # The frontend should update the session with this new URL
+            return Response({
+                'id': str(user.id),
+                'username': user.username,
+                'email': user.email,
+                'profile_picture': profile_picture_url
+            })
+        
+        return Response({"error": "No profile picture provided"}, status=400)
+
+class VideoListAPIView(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        query = request.GET.get('search', '')
+        videos_list = Video.objects.all().order_by('-created_at')
+        
+        # Search functionality
+        if query:
+            videos_list = videos_list.filter(
+                Q(title__icontains=query) | 
+                Q(description__icontains=query)
+            )
+            
+        # Pagination
+        paginator = PageNumberPagination()
+        paginator.page_size = 6
+        result_page = paginator.paginate_queryset(videos_list, request)
+        serializer = VideoSerializer(result_page, many=True)
+        
+        return paginator.get_paginated_response(serializer.data)
+
     # Frontend views
 
 class RegistrationView(View):
@@ -304,6 +374,18 @@ class LoginView(View):
                 try:
                     request.session['token'] = response_data['token']
                     request.session['user_id'] = response_data['user_id']
+                    
+                    # Fetch user profile to get profile picture URL
+                    profile_response = requests.get(
+                        f"{settings.API_BASE_URL}/users/profile/",
+                        headers={'Authorization': f"Token {response_data['token']}"}
+                    )
+                    
+                    if profile_response.status_code == 200:
+                        profile_data = profile_response.json()
+                        if profile_data.get('profile_picture'):
+                            request.session['profile_picture_url'] = profile_data['profile_picture']
+                    
                     return redirect('dashboard')
                 except KeyError:
                     form.add_error(None, "Invalid response from the server.")
@@ -322,11 +404,24 @@ class LandingPageView(View):
         if not request.user.is_authenticated:
             return redirect('login')
         return render(request, 'core/landing_page.html')
+    
 
 class LogoutView(View):
     def get(self, request):
-        auth_logout(request)
+        # Clear the session data
+        if 'token' in request.session:
+            del request.session['token']
+        if 'user_id' in request.session:
+            del request.session['user_id']
+        if 'profile_picture_url' in request.session:
+            del request.session['profile_picture_url']
+        
+        # Perform Django logout
+        logout(request)
+        
+        # Redirect to login page
         return redirect('login')
+  
     
 class BaseView(View):
     def get(self, request):
@@ -336,12 +431,11 @@ class HomeView(View):
     def get(self, request):
         return render(request, 'core/home.html')
     
-@method_decorator(login_required, name='dispatch')
+method_decorator(login_required, name='dispatch')
 class DashboardView(View):
     def get(self, request):
         return render(request, "core/dashboard.html")
     
-@login_required
 def income_list(request):
     token = request.session.get("token")  # Retrieve the token from the session
     user_id = request.session.get("user_id")  # Retrieve the user_id from the session
@@ -575,3 +669,90 @@ class UpdateExpenseViewFront(View):
             return JsonResponse({'success': False, 'errors': "Invalid JSON data"}, status=400)
         except Exception as e:
             return JsonResponse({'success': False, 'errors': str(e)}, status=500)
+        
+class ProfileView(View):
+    def get(self, request):
+        # Check if user is authenticated
+        token = request.session.get('token')
+        user_id = request.session.get('user_id')
+        
+        if not token or not user_id:
+            messages.error(request, "Authentication required. Please log in again.")
+            return redirect('login')
+            
+        headers = {'Authorization': f'Token {token}'}
+        
+        try:
+            # Get user profile data
+            response = requests.get(f"{settings.API_BASE_URL}/users/profile/", headers=headers)
+            if response.status_code == 200:
+                user_data = response.json()
+                form = ProfilePictureForm()
+                return render(request, 'core/profile.html', {'user_data': user_data, 'form': form})
+            else:
+                messages.error(request, "Failed to fetch user profile.")
+                return redirect('dashboard')
+        except requests.exceptions.RequestException:
+            messages.error(request, "Error connecting to the server.")
+            return redirect('dashboard')
+    
+    def post(self, request):
+        token = request.session.get('token')
+        user_id = request.session.get('user_id')
+        
+        if not token or not user_id:
+            messages.error(request, "Authentication required. Please log in again.")
+            return redirect('login')
+            
+        form = ProfilePictureForm(request.POST, request.FILES)
+        if form.is_valid():
+            # Create a multipart form data request
+            headers = {'Authorization': f'Token {token}'}
+            files = {'profile_picture': request.FILES['profile_picture']}
+            
+            try:
+                response = requests.put(
+                    f"{settings.API_BASE_URL}/users/profile/",
+                    headers=headers,
+                    files=files
+                )
+                
+                if response.status_code == 200:
+                    # Update the profile picture URL in the session
+                    response_data = response.json()
+                    if response_data.get('profile_picture'):
+                        request.session['profile_picture_url'] = response_data['profile_picture']
+                    
+                    messages.success(request, "Profile picture updated successfully!")
+                else:
+                    messages.error(request, "Failed to update profile picture.")
+            except requests.exceptions.RequestException:
+                messages.error(request, "Error connecting to the server.")
+                
+        return redirect('profile')
+
+class VideoListView(View):
+    def get(self, request):
+        query = request.GET.get('search', '')
+        videos_list = Video.objects.all().order_by('-created_at')
+        
+        # Search functionality
+        if query:
+            videos_list = videos_list.filter(
+                Q(title__icontains=query) | 
+                Q(description__icontains=query)
+            )
+        
+        # Pagination
+        paginator = Paginator(videos_list, 6)  # Show 6 videos per page
+        page_number = request.GET.get('page', 1)
+        videos = paginator.get_page(page_number)
+        
+        return render(request, 'core/videos.html', {
+            'videos': videos,
+            'search_query': query
+        })
+    
+class CategoryList(generics.ListAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer

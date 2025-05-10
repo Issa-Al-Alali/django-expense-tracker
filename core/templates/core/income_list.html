@@ -1,32 +1,116 @@
-<!-- filepath: c:\Users\user\finance_project\core\templates\core\income_list.html -->
 {% extends 'core/base.html' %}
-{% block title %}Manage Income{% endblock %}
+{% load static %}
+{% block title %}Manage Income | Finance Tracker{% endblock %}
 
 {% block content %}
-<h2>Manage Your Income</h2>
-
-{% if income %}
-    <p>Current Budget Amount: <strong>{{ income.budget_amount }}</strong></p>
-{% else %}
-    <p>No income data available.</p>
-{% endif %}
-
-<h3>Update Your Income</h3>
-<form method="POST" action="">
-    {% csrf_token %}
-    <label for="budget_amount">Budget Amount:</label>
-    <input type="number" step="0.01" name="budget_amount" id="budget_amount" 
-           value="{{ income.budget_amount|default:'' }}" required>
-    <button type="submit">Update Income</button>
-</form>
-
-{% if messages %}
-    <div class="messages">
-        {% for message in messages %}
-            <div class="message {{ message.tags }}">
-                {{ message }}
-            </div>
-        {% endfor %}
+<div class="income-management">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="bi bi-cash-stack text-primary me-2"></i>Manage Your Income
+        </h2>
     </div>
-{% endif %}
+
+    <!-- Current Income Card -->
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="card-title text-muted mb-1">Current Budget</h5>
+                    {% if income %}
+                        <h3 class="mb-0 text-success">${{ income.budget_amount|floatformat:2 }}</h3>
+                    {% else %}
+                        <p class="text-muted mb-0">No income data available</p>
+                    {% endif %}
+                </div>
+                <div class="icon-circle bg-success bg-opacity-10 text-success">
+                    <i class="bi bi-currency-dollar"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Form -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <h4 class="card-title mb-4">
+                <i class="bi bi-pencil-square text-primary me-2"></i>Update Your Income
+            </h4>
+            
+            <form method="POST" action="">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="budget_amount" class="form-label fw-semibold">Budget Amount</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" step="0.01" class="form-control" 
+                               name="budget_amount" id="budget_amount" 
+                               value="{{ income.budget_amount|default:'' }}" 
+                               placeholder="Enter amount" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-circle me-2"></i>Update Income
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+                <div class="message {{ message.tags }}">
+                    
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+
+<style>
+    .income-management {
+        padding: 1.5rem 0;
+    }
+    
+    .icon-circle {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
+    
+    .card {
+        border-radius: 12px;
+        transition: transform 0.3s ease;
+    }
+    
+    .card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .form-control, .input-group-text {
+        padding: 0.75rem 1rem;
+        border-radius: 8px !important;
+    }
+    
+    .input-group-text {
+        background-color: var(--gray-light);
+    }
+    
+    .btn-primary {
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+    }
+    
+    @media (max-width: 768px) {
+        .card-body {
+            padding: 1.25rem;
+        }
+    }
+</style>
 {% endblock %}

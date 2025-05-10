@@ -16,7 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.conf import settings
+from django.conf.urls.static import static
 from core.views import (
+    CategoryList,
     UpdateExpenseView,
     UserRegistrationView, 
     UserLoginView,
@@ -25,7 +28,6 @@ from core.views import (
     RegistrationView,
     LoginView,
     LandingPageView,
-    LogoutView,
     BaseView,
     DashboardView,
     income_list,
@@ -37,6 +39,11 @@ from core.views import (
     DeleteExpenseView,
     MonthlyExpenseSummaryView,
     CategoryExpenseSummaryView,
+    UserProfileView,
+    ProfileView,
+    LogoutView,
+    VideoListView,
+    VideoListAPIView,
 )
 
 urlpatterns = [
@@ -52,16 +59,21 @@ urlpatterns = [
     path('expenses/delete/<uuid:expense_id>/', DeleteExpenseView.as_view(), name='delete_expense'),
     path('expenses/<uuid:user_id>/monthly-summary/', MonthlyExpenseSummaryView.as_view(), name='monthly-summary'),
     path('expenses/<uuid:user_id>/category-summary/', CategoryExpenseSummaryView.as_view(), name='category-summary'),
+    path('users/profile/', UserProfileView.as_view(), name='api-profile'),
+    path('api/videos/', VideoListAPIView.as_view(), name='video-list-api'),
+    path('categories/', CategoryList.as_view(), name='category-list'),
     # Frontend views
     path('register/', RegistrationView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
+    path('logout/', LogoutView.as_view(), name='logout'),
     path('landing/', LandingPageView.as_view(), name='landing_page'),
     path('base/', BaseView.as_view(), name='base'),
     path('', LoginView.as_view(), name='home'),  # Default to login
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
     path('incomes-list/', income_list, name='frontend-income-list'),  # Add this line  # Add this line
-    path('logout/', LogoutView.as_view(), name='logout'),
     path('expenses/view', ExpensesPageView.as_view(), name='frontend-expense-list'),  # Add this line
     path('expenses/add/', AddExpenseViewFront.as_view(), name='add_expense'),
     path('expenses/update/<uuid:expense_id>/', UpdateExpenseViewFront.as_view(), name='update_expense'),
-]
+    path('profile/', ProfileView.as_view(), name='profile'),
+    path('videos/', VideoListView.as_view(), name='video-list'),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,0 +1,39 @@
+# render.yaml
+
+# Defines your PostgreSQL database
+databases:
+  - name: finance-tracker-db
+    plan: free
+    databaseName: finance_tracker
+    user: postgres
+
+# Defines your Django web service
+services:
+  - type: web
+    name: finance-tracker-backend
+    runtime: python
+    plan: free
+    buildCommand: "./build.sh" # Path to your build script
+    startCommand: "gunicorn config.wsgi:application --log-file -" # IMPORTANT: Change 'your_project_name' to 'config' based on your WSGI_APPLICATION
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: finance-tracker-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 4
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: API_BASE_URL
+        value: "https://finance-tracker-backend.onrender.com" # Replace with your actual Render URL later
+      # Uncomment and set these if you opted for superuser creation in build.sh
+      # - key: DJANGO_SUPERUSER_USERNAME
+      #   value: "admin"
+      # - key: DJANGO_SUPERUSER_PASSWORD
+      #   value: "your_initial_admin_password" # Change this AFTER first deploy!
+      # - key: DJANGO_SUPERUSER_EMAIL
+      #   value: "admin@example.com"
+    # Optional: Health check path for Render to monitor your app's health
+    # healthCheckPath: /health/ # If you have a specific health check endpoint

@@ -86,16 +86,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'finance_tracker',
-        'USER': 'root',
-        'PASSWORD': '@01012004iA',
+        'USER': 'postgres',
+        'PASSWORD': 'password_goes_here',
         'HOST': 'localhost',
-        'PORT': '3306',
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            'charset': 'utf8mb4',
-        },
+        'PORT': '5432',
     }
 }
 

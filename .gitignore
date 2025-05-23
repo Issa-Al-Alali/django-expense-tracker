@@ -1,0 +1,36 @@
+# Byte-code files
+*.pyc
+__pycache__/
+
+# Virtual environment
+.venv/
+env/
+venv/ # You have a 'venv' folder
+/vend/ # Keep this if you might use it in the future, even if not currently present
+
+# Database
+db.sqlite3
+
+# Media and static files (if served locally during development)
+/media/
+/static_collected/
+
+# Django specific
+*.log
+local_settings.py  # Or whatever file you use for local, sensitive settings
+*.pot
+*.mo
+
+# IDE and OS specific
+.DS_Store
+.vscode/
+.idea/
+
+# Editor swap files
+*~
+.#*
+
+# Build artifacts
+dist/
+build/
+*.egg-info/

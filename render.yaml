@@ -5,7 +5,7 @@ databases:
   - name: finance-tracker-db
     plan: free
     databaseName: finance_tracker
-    user: postgres
+    user: appuser 
 
 # Defines your Django web service
 services:

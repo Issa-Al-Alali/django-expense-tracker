@@ -44,6 +44,11 @@ from core.views import (
     LogoutView,
     VideoListView,
     VideoListAPIView,
+    VideoDetailAPIView,
+    VideoCommentListCreateAPIView,
+    VideoCommentDetailAPIView,
+    VideoLikeAPIView,
+    VideoReviewCreateUpdateAPIView,
 )
 
 urlpatterns = [
@@ -60,7 +65,22 @@ urlpatterns = [
     path('expenses/<uuid:user_id>/monthly-summary/', MonthlyExpenseSummaryView.as_view(), name='monthly-summary'),
     path('expenses/<uuid:user_id>/category-summary/', CategoryExpenseSummaryView.as_view(), name='category-summary'),
     path('users/profile/', UserProfileView.as_view(), name='api-profile'),
+    # Video-related API endpoints
     path('api/videos/', VideoListAPIView.as_view(), name='video-list-api'),
+    path('api/videos/<uuid:video_id>/', VideoDetailAPIView.as_view(), name='video-detail-api'),
+    
+    # Video comments endpoints
+    path('api/videos/<uuid:video_id>/comments/', VideoCommentListCreateAPIView.as_view(), name='video-comments'),
+    path('api/comments/<uuid:comment_id>/', VideoCommentDetailAPIView.as_view(), name='comment-detail'),
+    
+    # Video likes endpoint
+    path('api/videos/<uuid:video_id>/like/', VideoLikeAPIView.as_view(), name='video-like'),
+    
+    # Video reviews endpoint
+    path('api/videos/<uuid:video_id>/review/', VideoReviewCreateUpdateAPIView.as_view(), name='video-review'),
+    
+    # Template view for videos page
+    path('videos/', VideoListView.as_view(), name='video-list'),
     path('categories/', CategoryList.as_view(), name='category-list'),
     # Frontend views
     path('register/', RegistrationView.as_view(), name='register'),

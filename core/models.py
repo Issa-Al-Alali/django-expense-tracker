@@ -29,6 +29,10 @@ class Video(models.Model):
     description = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)  # New field
     
+    view_count = models.PositiveIntegerField(default=0)
+    likes_count = models.PositiveIntegerField(default=0)
+    comments_count = models.PositiveIntegerField(default=0)
+
     def __str__(self):
         return self.title
 
@@ -54,3 +58,46 @@ class Income(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.budget_amount}"
+
+# New model for video likes
+class VideoLike(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='video_likes')
+    video = models.ForeignKey(Video, on_delete=models.CASCADE, related_name='likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        # Ensure a user can only like a video once
+        unique_together = ('user', 'video')
+    
+    def __str__(self):
+        return f"{self.user.username} liked {self.video.title}"
+
+# New model for video comments
+class VideoComment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='video_comments')
+    video = models.ForeignKey(Video, on_delete=models.CASCADE, related_name='comments')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Comment by {self.user.username} on {self.video.title}"
+
+# New model for video reviews (more detailed than simple likes)
+class VideoReview(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='video_reviews')
+    video = models.ForeignKey(Video, on_delete=models.CASCADE, related_name='reviews')
+    rating = models.PositiveSmallIntegerField(choices=[(i, i) for i in range(1, 6)])  # 1-5 star rating
+    review_text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        # Ensure a user can only review a video once
+        unique_together = ('user', 'video')
+    
+    def __str__(self):
+        return f"{self.user.username}'s {self.rating}-star review of {self.video.title}"

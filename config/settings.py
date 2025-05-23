@@ -88,8 +88,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'finance_tracker',
-        'USER': 'finance_user',
-        'PASSWORD': 'password',
+        'USER': 'root',
+        'PASSWORD': '@01012004iA',
         'HOST': 'localhost',
         'PORT': '3306',
         'OPTIONS': {

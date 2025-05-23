@@ -2,8 +2,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .serializers import UserRegistrationSerializer, UserLoginSerializer, ExpenseSerializer, VideoSerializer, CategorySerializer
-from .models import Income, Category, Expense, Video
+from .serializers import UserRegistrationSerializer, UserLoginSerializer, ExpenseSerializer, VideoCommentSerializer, VideoDetailSerializer, VideoLikeSerializer, VideoReviewSerializer, VideoSerializer, CategorySerializer
+from .models import Income, Category, Expense, Video, VideoComment, VideoLike
 from django.db import IntegrityError
 from django.db.models.functions import ExtractMonth
 from django.db.models import Sum, Q
@@ -305,6 +305,7 @@ class UserProfileView(APIView):
         
         return Response({"error": "No profile picture provided"}, status=400)
 
+# Video list view with search and pagination
 class VideoListAPIView(APIView):
     permission_classes = [AllowAny]
     
@@ -315,7 +316,7 @@ class VideoListAPIView(APIView):
         # Search functionality
         if query:
             videos_list = videos_list.filter(
-                Q(title__icontains=query) | 
+                Q(title__icontains=query) |
                 Q(description__icontains=query)
             )
             
@@ -323,9 +324,172 @@ class VideoListAPIView(APIView):
         paginator = PageNumberPagination()
         paginator.page_size = 6
         result_page = paginator.paginate_queryset(videos_list, request)
-        serializer = VideoSerializer(result_page, many=True)
+        serializer = VideoSerializer(result_page, many=True, context={'request': request})
         
         return paginator.get_paginated_response(serializer.data)
+
+# Video detail API view
+class VideoDetailAPIView(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request, video_id):
+        video = get_object_or_404(Video, id=video_id)
+        
+        # Optionally increment view count
+        video.view_count += 1
+        video.save()
+        
+        serializer = VideoDetailSerializer(video, context={'request': request})
+        return Response(serializer.data)
+
+# Video comment API endpoints
+class VideoCommentListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]  # Only logged in users can comment
+    
+    def get(self, request, video_id):
+        video = get_object_or_404(Video, id=video_id)
+        comments = video.comments.all().order_by('-created_at')
+        serializer = VideoCommentSerializer(comments, many=True)
+        return Response(serializer.data)
+    
+    def post(self, request, video_id):
+        video = get_object_or_404(Video, id=video_id)
+        
+        serializer = VideoCommentSerializer(
+            data={'video': video.id, 'content': request.data.get('content')},
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            comment = serializer.save()
+            
+            # Update comment count on video
+            video.comments_count = video.comments.count()
+            video.save()
+            
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# Video comment detail API endpoints (update, delete)
+class VideoCommentDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get_object(self, comment_id, user):
+        comment = get_object_or_404(VideoComment, id=comment_id)
+        
+        # Check if the user is the comment owner
+        if comment.user != user:
+            return None
+        return comment
+    
+    def put(self, request, comment_id):
+        comment = self.get_object(comment_id, request.user)
+        if not comment:
+            return Response(
+                {"detail": "You don't have permission to edit this comment."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = VideoCommentSerializer(
+            comment,
+            data={'video': comment.video.id, 'content': request.data.get('content')},
+            context={'request': request},
+            partial=True
+        )
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, comment_id):
+        comment = self.get_object(comment_id, request.user)
+        if not comment:
+            return Response(
+                {"detail": "You don't have permission to delete this comment."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        video = comment.video
+        comment.delete()
+        
+        # Update comment count on video
+        video.comments_count = video.comments.count()
+        video.save()
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+# Video like toggle API endpoint
+class VideoLikeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, video_id):
+        video = get_object_or_404(Video, id=video_id)
+
+        # Pass the video instance to the serializer data
+        serializer = VideoLikeSerializer(
+            data={'video': video.id}, # Pass video ID for validation
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            # The save() method in the serializer handles the creation/deletion and count update
+            serializer.save()
+
+            # Re-fetch the video to get the updated likes_count
+            video.refresh_from_db()
+
+            # Return updated like status
+            return Response({
+                'liked': VideoLike.objects.filter(user=request.user, video=video).exists(),
+                'likes_count': video.likes_count
+            }, status=status.HTTP_200_OK) # Use 200 OK for success
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# Video review API endpoints
+class VideoReviewCreateUpdateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, video_id):
+        video = get_object_or_404(Video, id=video_id)
+        
+        serializer = VideoReviewSerializer(
+            data={
+                'video': video.id,
+                'rating': request.data.get('rating'),
+                'review_text': request.data.get('review_text', '')
+            },
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# Template view for videos page
+class VideoListView(View):
+    def get(self, request):
+        query = request.GET.get('search', '')
+        videos_list = Video.objects.all().order_by('-created_at')
+        
+        # Search functionality
+        if query:
+            videos_list = videos_list.filter(
+                Q(title__icontains=query) |
+                Q(description__icontains=query)
+            )
+        
+        # Pagination
+        paginator = Paginator(videos_list, 6)  # Show 6 videos per page
+        page_number = request.GET.get('page', 1)
+        videos = paginator.get_page(page_number)
+        
+        return render(request, 'core/videos.html', {
+            'videos': videos,
+            'search_query': query
+        })
 
     # Frontend views
 

@@ -3,6 +3,7 @@
 __pycache__/
 
 # Virtual environment
+.env
 .venv/
 env/
 venv/ # You have a 'venv' folder

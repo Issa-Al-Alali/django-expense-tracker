@@ -64,8 +64,8 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware', # Add this line at the top
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware', # Add this line right after SecurityMiddleware
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -103,16 +103,24 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'finance_tracker',
-        'USER': 'postgres',
-        'PASSWORD': os.environ.get('DATABASE_PASS'),
-        'HOST': 'localhost',
-        'PORT': '5432',
+if os.environ.get('DATABASE_URL'): # Check if DATABASE_URL is set (e.g., by Render)
+    DATABASES = {
+        'default': dj_database_url.config(
+            conn_max_age=600,
+            ssl_require=True # Important for Render's PostgreSQL connections
+        )
     }
-}
+else: # Fallback for local development if DATABASE_URL is not set
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'finance_tracker',
+            'USER': 'postgres',
+            'PASSWORD': os.environ.get('DATABASE_PASS'),
+            'HOST': 'localhost',
+            'PORT': '5432',
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -149,8 +157,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # Add this if not already there
 LOGIN_URL = '/login/'
-API_BASE_URL = 'http://localhost:8000'  # Your API base URL
+API_BASE_URL = os.environ.get('API_BASE_URL', 'http://localhost:8000') # Default for local
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 X_FRAME_OPTIONS = 'SAMEORIGIN'
